@@ -15,12 +15,19 @@ data_no_headers   <- read.delim("data/credit_card_data.txt", header = FALSE)
 # Assign column names to no-header dataset
 colnames(data_no_headers) <- colnames(data_with_headers)
 
-# Combine both (in case you need a unified dataset)
+# Combine both (unified dataset)
 data <- rbind(data_with_headers, data_no_headers)
 
 # Quick check
 cat("Combined dataset dimensions:", dim(data), "\n")
 head(data)
+
+# -------------------- Identify target --------------------
+target_col <- ncol(data)                   # Last column is target
+target_name <- colnames(data)[target_col]  # Column name of target
+formula <- as.formula(paste(target_name, "~ ."))
+
+cat("Target column detected:", target_name, "\n")
 
 # -------------------- Helper Functions --------------------
 
@@ -37,11 +44,11 @@ manual_predict <- function(model, a, a0, data, scaled = TRUE) {
   preds <- numeric(n)
   
   for (i in 1:n) {
-    x <- data[i, 1:10]
+    x <- as.numeric(data[i, -target_col])  # all predictors
     
     if (scaled && !is.null(model@scaling)) {
       x <- (x - model@scaling$x.scale$`scaled:center`) /
-           model@scaling$x.scale$`scaled:scale`
+        model@scaling$x.scale$`scaled:scale`
     }
     
     preds[i] <- ifelse(sum(a * x) + a0 >= 0, 1, 0)
@@ -58,7 +65,7 @@ accuracy <- function(preds, truth) {
 
 # Scaled model
 model_scaled <- ksvm(
-  V11 ~ ., data = data,
+  formula, data = data,
   type = "C-svc",
   kernel = "vanilladot",
   C = 100,
@@ -67,7 +74,7 @@ model_scaled <- ksvm(
 
 # Unscaled model
 model_unscaled <- ksvm(
-  V11 ~ ., data = data,
+  formula, data = data,
   type = "C-svc",
   kernel = "vanilladot",
   C = 100,
@@ -76,18 +83,36 @@ model_unscaled <- ksvm(
 
 # -------------------- Coefficients & Predictions --------------------
 
+truth <- data[[target_name]]
+
 # Scaled
 coef_scaled <- extract_coefficients(model_scaled)
 pred_scaled_manual <- manual_predict(model_scaled, coef_scaled$a, coef_scaled$a0, data, scaled = TRUE)
-pred_scaled_builtin <- predict(model_scaled, data[, 1:10])
+pred_scaled_builtin <- predict(model_scaled, data[, -target_col])
 
-cat("\nScaled model accuracy (manual):", accuracy(pred_scaled_manual, data$V11))
-cat("\nScaled model accuracy (predict()):", accuracy(pred_scaled_builtin, data$V11))
+cat("\nScaled model accuracy (manual):", accuracy(pred_scaled_manual, truth))
+cat("\nScaled model accuracy (predict()):", accuracy(pred_scaled_builtin, truth))
 
 # Unscaled
 coef_unscaled <- extract_coefficients(model_unscaled)
 pred_unscaled_manual <- manual_predict(model_unscaled, coef_unscaled$a, coef_unscaled$a0, data, scaled = FALSE)
-pred_unscaled_builtin <- predict(model_unscaled, data[, 1:10])
+pred_unscaled_builtin <- predict(model_unscaled, data[, -target_col])
 
-cat("\n\nUnscaled model accuracy (manual):", accuracy(pred_unscaled_manual, data$V11))
-cat("\nUnscaled model accuracy (predict()):", accuracy(pred_unscaled_builtin, data$V11), "\n")
+cat("\n\nUnscaled model accuracy (manual):", accuracy(pred_unscaled_manual, truth))
+cat("\nUnscaled model accuracy (predict()):", accuracy(pred_unscaled_builtin, truth), "\n")
+
+# -------------------- Display classifier equations --------------------
+
+cat("\nScaled model classifier equation:\n")
+cat("f(x) = sign(", round(coef_scaled$a0, 6), sep = "")
+for (i in 1:length(coef_scaled$a)) {
+  cat(" + ", round(coef_scaled$a[i], 6), "*x", i, sep = "")
+}
+cat(")\n")
+
+cat("\nUnscaled model classifier equation:\n")
+cat("f(x) = sign(", round(coef_unscaled$a0, 6), sep = "")
+for (i in 1:length(coef_unscaled$a)) {
+  cat(" + ", round(coef_unscaled$a[i], 6), "*x", i, sep = "")
+}
+cat(")\n")
