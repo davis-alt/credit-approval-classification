@@ -52,5 +52,3 @@ cd credit-approval-classification
 # Open R and install dependencies
 install.packages(c("kernlab", "kknn"))
 
-# Run the R Markdown notebook
-rmarkdown::render("notebooks/credit_classification.Rmd")
