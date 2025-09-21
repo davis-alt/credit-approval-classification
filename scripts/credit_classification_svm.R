@@ -116,3 +116,22 @@ for (i in 1:length(coef_unscaled$a)) {
   cat(" + ", round(coef_unscaled$a[i], 6), "*x", i, sep = "")
 }
 cat(")\n")
+
+# -------------------- Generate Confusion Matrix --------------------
+library(caret)  # for confusionMatrix
+
+# Predictions from scaled model
+pred_scaled <- predict(model_scaled, data[, -target_col])
+
+# Convert to factors to avoid warnings
+truth_factor <- factor(data[[target_col]])
+pred_factor  <- factor(pred_scaled, levels = levels(truth_factor))
+
+# Confusion matrix
+cm <- confusionMatrix(pred_factor, truth_factor)
+print(cm)
+
+
+fourfoldplot(cm$table, color = c("skyblue", "pink"),
+             conf.level = 0, margin = 1,
+             main = "SVM Confusion Matrix")
