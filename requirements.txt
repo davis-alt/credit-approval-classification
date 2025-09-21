@@ -1,0 +1,5 @@
+kernlab
+kknn
+caret
+ggplot2
+reshape2
